@@ -250,8 +250,8 @@ const Cart = () => {
               <SummaryItemPrice>$ {cart.total}</SummaryItemPrice>
             </SummaryItem>
             <StripeCheckout
-              name="Lama Shop"
-              image="https://avatars.githubusercontent.com/u/1486366?v=4"
+              name="Ecommerce Shop"
+              image="https://w7.pngwing.com/pngs/621/196/png-transparent-e-commerce-logo-logo-e-commerce-electronic-business-ecommerce-angle-text-service-thumbnail.png"
               billingAddress
               shippingAddress
               description={`Your total is $${cart.total}`}
@@ -270,3 +270,4 @@ const Cart = () => {
 };
 
 export default Cart;
+/* https://avatars.githubusercontent.com/u/1486366?v=4 */
