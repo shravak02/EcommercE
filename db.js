@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-let isConnected;
+let isConnected = false;
 
 export async function connectDB() {
   if (isConnected) return;
@@ -17,3 +17,4 @@ export async function connectDB() {
     throw err;
   }
 }
+
