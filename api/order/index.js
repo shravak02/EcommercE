@@ -1,99 +1,98 @@
-const Order = require("../models/Order");
-const {
+import { connectDB } from '../../db';
+import Order from '../../models/Order';
+import {
   verifyToken,
   verifyTokenAndAuthorization,
   verifyTokenAndAdmin,
-} = require("./verifyToken");
+} from '../verifyToken';
 
-const router = require("express").Router();
+export default async function handler(req, res) {
+  const { method, query } = req;
 
-//CREATE
-
-router.post("/", verifyToken, async (req, res) => {
-  const newOrder = new Order(req.body);
+  await connectDB();
 
   try {
-    const savedOrder = await newOrder.save();
-    res.status(200).json(savedOrder);
-  } catch (err) {
-    res.status(500).json(err);
-  }
-});
+    // ✅ CREATE ORDER
+    if (method === 'POST') {
+      const user = verifyToken(req, res);
+      if (!user) return;
 
-//UPDATE
-router.put("/:id", verifyTokenAndAdmin, async (req, res) => {
-  try {
-    const updatedOrder = await Order.findByIdAndUpdate(
-      req.params.id,
-      {
-        $set: req.body,
-      },
-      { new: true }
-    );
-    res.status(200).json(updatedOrder);
-  } catch (err) {
-    res.status(500).json(err);
-  }
-});
+      const newOrder = new Order(req.body);
+      const savedOrder = await newOrder.save();
+      return res.status(201).json(savedOrder);
+    }
 
-//DELETE
-router.delete("/:id", verifyTokenAndAdmin, async (req, res) => {
-  try {
-    await Order.findByIdAndDelete(req.params.id);
-    res.status(200).json("Order has been deleted...");
-  } catch (err) {
-    res.status(500).json(err);
-  }
-});
+    // ✅ UPDATE ORDER
+    if (method === 'PUT') {
+      const user = verifyTokenAndAdmin(req, res);
+      if (!user) return;
 
-//GET USER ORDERS
-router.get("/find/:userId", verifyTokenAndAuthorization, async (req, res) => {
-  try {
-    const orders = await Order.find({ userId: req.params.userId });
-    res.status(200).json(orders);
-  } catch (err) {
-    res.status(500).json(err);
-  }
-});
+      const updatedOrder = await Order.findByIdAndUpdate(
+        query.id,
+        { $set: req.body },
+        { new: true }
+      );
+      return res.status(200).json(updatedOrder);
+    }
 
-// //GET ALL
+    // ✅ DELETE ORDER
+    if (method === 'DELETE') {
+      const user = verifyTokenAndAdmin(req, res);
+      if (!user) return;
 
-router.get("/", verifyTokenAndAdmin, async (req, res) => {
-  try {
-    const orders = await Order.find();
-    res.status(200).json(orders);
-  } catch (err) {
-    res.status(500).json(err);
-  }
-});
+      await Order.findByIdAndDelete(query.id);
+      return res.status(200).json({ message: 'Order deleted' });
+    }
 
-// GET MONTHLY INCOME
+    // ✅ GET INCOME
+    if (method === 'GET' && query.income === 'true') {
+      const user = verifyTokenAndAdmin(req, res);
+      if (!user) return;
 
-router.get("/income", verifyTokenAndAdmin, async (req, res) => {
-  const date = new Date();
-  const lastMonth = new Date(date.setMonth(date.getMonth() - 1));
-  const previousMonth = new Date(new Date().setMonth(lastMonth.getMonth() - 1));
+      const date = new Date();
+      const lastMonth = new Date(date.setMonth(date.getMonth() - 1));
+      const previousMonth = new Date(new Date().setMonth(lastMonth.getMonth() - 1));
 
-  try {
-    const income = await Order.aggregate([
-      { $match: { createdAt: { $gte: previousMonth } } },
-      {
-        $project: {
-          month: { $month: "$createdAt" },
-          sales: "$amount",
+      const income = await Order.aggregate([
+        { $match: { createdAt: { $gte: previousMonth } } },
+        {
+          $project: {
+            month: { $month: '$createdAt' },
+            sales: '$amount',
+          },
         },
-      },
-      {
-        $group: {
-          _id: "$month",
-          total: { $sum: "$sales" },
+        {
+          $group: {
+            _id: '$month',
+            total: { $sum: '$sales' },
+          },
         },
-      },
-    ]);
-    res.status(200).json(income);
-  } catch (err) {
-    res.status(500).json(err);
-  }
-});
+      ]);
+      return res.status(200).json(income);
+    }
 
-module.exports = router;
+    // ✅ GET USER ORDERS
+    if (method === 'GET' && query.userId) {
+      const user = verifyTokenAndAuthorization(req, res);
+      if (!user) return;
+
+      const orders = await Order.find({ userId: query.userId });
+      return res.status(200).json(orders);
+    }
+
+    // ✅ GET ALL ORDERS (ADMIN)
+    if (method === 'GET') {
+      const user = verifyTokenAndAdmin(req, res);
+      if (!user) return;
+
+      const orders = await Order.find();
+      return res.status(200).json(orders);
+    }
+
+    // ❌ Unknown method
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Something went wrong' });
+  }
+}
